@@ -34,42 +34,38 @@
 	if (DEBUG) unsafeWindow.console.clear = function () {};
 	//
 	const Notification = unsafeWindow.document.createElement("div");
-	Notification.style.cssText = `
-    position: fixed;
-    bottom: 20px;
-    left: 20px;
-    background: rgba(28,28,28,0.97);
-    color: #fff;
-    padding: 12px 20px;
-    border-radius: 10px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    z-index: 999999;
-    min-width: 180px;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.45);`;
-    //
+	Object.assign(Notification.style, {
+		position: "fixed",
+		bottom: "20px",
+		left: "20px",
+		background: "rgba(28,28,28,0.97)",
+		color: "#fff",
+		padding: "12px 20px",
+		borderRadius: "10px",
+		display: "flex",
+		flexDirection: "column",
+		alignItems: "center",
+		fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
+		zIndex: "999999",
+		minWidth: "180px",
+		boxShadow: "0 6px 20px rgba(0,0,0,0.45)",
+	});
+	//
 	const Status = unsafeWindow.document.createElement("div");
 	Status.textContent = "Solve Captcha 2 Continue";
-	Status.style.cssText = `
-    font-size: 14px;
-    color: #ccc;
-    text-align: center;
-    word-break: break-word;`;
-    //
+	Object.assign(Status.style, {
+		fontSize: "14px",
+		color: "#ccc",
+		textAlign: "center",
+		wordBreak: "break-word",
+	});
 	Notification.append(Status);
-    //
-	if (unsafeWindow.document.body) {
-		unsafeWindow.document.body.appendChild(Notification);
-	} else {
-		unsafeWindow.document.documentElement.appendChild(Notification);
-	}
-    //
+	//
+	unsafeWindow.document.documentElement.appendChild(Notification);
+	//
 	Log("Solve Captcha 2 Continue");
 	//
 	const Mapping = {
-		Send: ["sendMessage", "writMessage"],
 		Info: ["onLinkInfo"],
 		Dest: ["onLinkDestination"],
 	};
@@ -84,26 +80,34 @@
 		return { Fn: null, Index: -1, Name: null };
 	}
 	//
-	let _sessionController,
-		_sendMessage,
-		_onLinkInfo,
-		_onLinkDestination = undefined;
+	function Write(Obj) {
+		for (let i in Obj) {
+			if (typeof Obj[i] == "function" && Obj[i].length == 2) {
+				return { Fn: Obj[i], Name: i };
+			}
+		}
+		return { Fn: null, Index: -1, Name: null };
+	}
+	//
+	let _Session, _Send, _Info, _Dest = undefined;
 	//
 	function Client() {
 		return {
-			ANNOUNCE: "c_announce",
+			OFFER_SKIPPED: "c_offer_skipped",
 			MONETIZATION: "c_monetization",
+			PING: "c_ping",
+			ADBLOCKER_DETECTED: "c_adblocker_detected",
+			WORKINK_PASS_USE: "c_workink_pass_use",
+			FOCUS_LOST: "c_focus_lost",
+			WORKINK_PASS_AVAILABLE: "c_workink_pass_available",
+			ANNOUNCE: "c_announce",
+			HCAPTCHA_RESPONSE: "c_hcaptcha_response",
+			OFFERS_SKIPPED: "c_offers_skipped",
+			KEYAPP_KEY: "c_keyapp_key",
+			TURNSTILE_RESPONSE: "c_turnstile_response",
 			SOCIAL_STARTED: "c_social_started",
 			RECAPTCHA_RESPONSE: "c_recaptcha_response",
-			HCAPTCHA_RESPONSE: "c_hcaptcha_response",
-			TURNSTILE_RESPONSE: "c_turnstile_response",
-			ADBLOCKER_DETECTED: "c_adblocker_detected",
-			FOCUS_LOST: "c_focus_lost",
-			OFFERS_SKIPPED: "c_offers_skipped",
 			FOCUS: "c_focus",
-			WORKINK_PASS_AVAILABLE: "c_workink_pass_available",
-			WORKINK_PASS_USE: "c_workink_pass_use",
-			PING: "c_ping",
 		};
 	}
 	//
@@ -123,105 +127,106 @@
 			}
 			//
 			if (
-				_sessionController &&
-				_sessionController.linkInfo &&
+				_Session &&
+				_Session.linkInfo &&
 				Type === Packets.TURNSTILE_RESPONSE
 			) {
-				const Result = _sendMessage.apply(this, Args);
+				const Result = _Send.apply(this, Args);
 				//
 				Status.textContent = "Captcha Solved, Bypassing..";
 				Log("Captcha Solved");
 				//
-				for (const social of _sessionController.linkInfo.socials) {
-					_sendMessage.call(this, Packets.SOCIAL_STARTED, { url: social.url });
+				for (const Social of _Session.linkInfo.socials) {
+					_Send.call(this, Packets.SOCIAL_STARTED, { url: Social.url });
 				}
 				//
-				for (const monetizationIdx in _sessionController.linkInfo
-					.monetizations) {
-					const monetization =
-						_sessionController.linkInfo.monetizations[monetizationIdx];
+				for (const Monetization of _Session.monetizations) {
+					Log("Processing monetization:", Monetization);
+					const Write = Monetization.sendMessage;
 					//
-					switch (monetization) {
-						case 22:
-							_sendMessage.call(this, Packets.MONETIZATION, {
-								type: "readArticles2",
-								payload: { event: "read" },
+					switch (Monetization.id) {
+						case 22: {
+							// readArticles2
+							Write.call(Monetization, {
+								event: "read",
 							});
 							break;
+						}
 						//
-						case 25:
-							_sendMessage.call(this, Packets.MONETIZATION, {
-								type: "operaGX",
-								payload: { event: "start" },
+						case 25: {
+							// operaGX
+							Write.call(Monetization, {
+								event: "start",
 							});
-							_sendMessage.call(this, Packets.MONETIZATION, {
-								type: "operaGX",
-								payload: { event: "installClicked" },
+							Write.call(Monetization, {
+								event: "installClicked",
 							});
-							fetch("https://work.ink/_api/v2/callback/operaGX", {
-								method: "POST",
+							fetch("/_api/v2/affiliate/operaGX", {
+								method: "GET",
 								mode: "no-cors",
-								headers: {
-									"Content-Type": "application/json",
-								},
-								body: JSON.stringify({
-									noteligible: true,
-								}),
 							});
+							setTimeout(() => {
+								fetch("https://work.ink/_api/v2/callback/operaGX", {
+									method: "POST",
+									mode: "no-cors",
+									headers: {
+										"Content-Type": "application/json",
+									},
+									body: JSON.stringify({
+										noteligible: true,
+									}),
+								});
+							}, 5000);
 							break;
+						}
 						//
-						case 34:
-							_sendMessage.call(this, Packets.MONETIZATION, {
-								type: "norton",
-								payload: { event: "start" },
+						case 34: {
+							// norton
+							Write.call(Monetization, {
+								event: "start",
 							});
-							_sendMessage.call(this, Packets.MONETIZATION, {
-								type: "norton",
-								payload: { event: "installClicked" },
+							Write.call(Monetization, {
+								event: "installClicked",
 							});
 							break;
+						}
 						//
-						case 71:
-							_sendMessage.call(this, Packets.MONETIZATION, {
-								type: "externalArticles",
-								payload: { event: "start" },
+						case 71: {
+							// externalArticles
+							Write.call(Monetization, {
+								event: "start",
 							});
-							_sendMessage.call(this, Packets.MONETIZATION, {
-								type: "externalArticles",
-								payload: { event: "installClicked" },
+							Write.call(Monetization, {
+								event: "installClicked",
 							});
 							break;
+						}
 						//
-						case 45:
-							_sendMessage.call(this, Packets.MONETIZATION, {
-								type: "pdfeditor",
-								payload: { event: "installed" },
+						case 45: {
+							// pdfeditor
+							Write.call(Monetization, {
+								event: "installed",
 							});
 							break;
+						}
 						//
-						case 43:
-							_sendMessage.call(this, Packets.MONETIZATION, {
-								type: "temuMobile",
-								payload: { event: "installClicked" },
+						case 57: {
+							// betterdeals
+							Write.call(Monetization, {
+								event: "installed",
 							});
 							break;
-						//
-						case 57:
-							_sendMessage.call(this, Packets.MONETIZATION, {
-								type: "betterdeals",
-								payload: { event: "installed" },
-							});
-							break;
+						}
 						//
 						default:
-							Log("Unknown Monetization:", typeof monetization, monetization);
+							Log("Unknown Monetization:", typeof Monetization, Monetization);
 							break;
 					}
 				}
 				return Result;
 			}
 			//
-			return _sendMessage.apply(this, Args);
+			return _Send.apply(this, Args);
 		};
 	}
 	//
@@ -231,7 +236,7 @@
 			//
 			Log("Link Info:", Link);
 			//
-			Object.defineProperty(Link, "IsAdblockEnabled", {
+			Object.defineProperty(Link, "isAdblockEnabled", {
 				get() {
 					return false;
 				},
@@ -242,7 +247,7 @@
 				enumerable: true,
 			});
 			//
-			return _onLinkInfo.apply(this, Args);
+			return _Info.apply(this, Args);
 		};
 	}
 	//
@@ -263,51 +268,51 @@
 				window.location.href = Payload.url;
 			}, 30000);
 			//
-			return _onLinkDestination.apply(this, Args);
+			return _Dest.apply(this, Args);
 		};
 	}
 	//
 	function Session() {
-		const Send = Resolve(_sessionController, Mapping.Send);
-		const Info = Resolve(_sessionController, Mapping.Info);
-		const Dest = Resolve(_sessionController, Mapping.Dest);
+		const Send = Write(_Session);
+		const Info = Resolve(_Session, Mapping.Info);
+		const Dest = Resolve(_Session, Mapping.Dest);
 		//
-		_sendMessage = Send.Fn;
-		_onLinkInfo = Info.Fn;
-		_onLinkDestination = Dest.Fn;
+		_Send = Send.Fn;
+		_Info = Info.Fn;
+		_Dest = Dest.Fn;
 		//
 		const SendProxyObj = SendProxy();
 		const InfoProxyObj = InfoProxy();
 		const DestProxyObj = DestProxy();
 		//
-		Object.defineProperty(_sessionController, Send.Name, {
+		Object.defineProperty(_Session, Send.Name, {
 			get() {
 				return SendProxyObj;
 			},
 			set(NewValue) {
-				_sendMessage = NewValue;
+				_Send = NewValue;
 			},
 			configurable: false,
 			enumerable: true,
 		});
 		//
-		Object.defineProperty(_sessionController, Info.Name, {
+		Object.defineProperty(_Session, Info.Name, {
 			get() {
 				return InfoProxyObj;
 			},
 			set(NewValue) {
-				_onLinkInfo = NewValue;
+				_Info = NewValue;
 			},
 			configurable: false,
 			enumerable: true,
 		});
 		//
-		Object.defineProperty(_sessionController, Dest.Name, {
+		Object.defineProperty(_Session, Dest.Name, {
 			get() {
 				return DestProxyObj;
 			},
 			set(NewValue) {
-				_onLinkDestination = NewValue;
+				_Dest = NewValue;
 			},
 			configurable: false,
 			enumerable: true,
@@ -322,13 +327,13 @@
 		if (
 			Value &&
 			typeof Value === "object" &&
-			Resolve(Value, Mapping.Send).Fn &&
+			Write(Value).Fn &&
 			Resolve(Value, Mapping.Info).Fn &&
 			Resolve(Value, Mapping.Dest).Fn &&
-			!_sessionController
+			!_Session
 		) {
-			_sessionController = Value;
-			Log("Intercepted Session:", _sessionController);
+			_Session = Value;
+			Log("Intercepted Session:", _Session);
 			Session();
 		}
 		//
@@ -397,10 +402,10 @@
 	}
 	//
 	function KitSetup() {
-		const OriginalPromiseAll = unsafeWindow.Promise.all;
+		const OriginalPromiseAll = Promise.all;
 		let Intercepted = false;
 		//
-		unsafeWindow.Promise.all = async function (Promises) {
+		Promise.all = async function (Promises) {
 			const Result = OriginalPromiseAll.call(this, Promises);
 			//
 			if (!Intercepted) {
@@ -410,7 +415,7 @@
 						Log("Modules Loaded");
 						const [Success, WrappedKit] = KitProxy(Kit);
 						if (Success) {
-							unsafeWindow.Promise.all = OriginalPromiseAll;
+							Promise.all = OriginalPromiseAll;
 							Log("Wrapped Kit:", WrappedKit, App);
 						}
 						Resolve([WrappedKit, App, ...Args]);
@@ -422,6 +427,8 @@
 	}
 	//
 	KitSetup();
+	//
+	window.googletag = { cmd: [], _loaded_: true };
 	//
 	const Observer = new MutationObserver((Mutations) => {
 		for (const Mutation of Mutations) {
