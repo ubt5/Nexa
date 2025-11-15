@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Nexa
 // @namespace    http://tampermonkey.net/
-// @version      0.1.1
+// @version      0.1.2
 // @description  Automatically bypasses links
 // @author       nullcrisis
 // @updateURL    https://github.com/nullcrisis/Nexa/raw/refs/heads/main/Nexa.js
@@ -15,7 +15,7 @@
 (function () {
 	"use strict";
 	//
-	const DEBUG = false;
+	const DEBUG = true;
 	//
 	const OldLog = unsafeWindow.console.log;
 	const OldWarn = unsafeWindow.console.warn;
@@ -60,7 +60,6 @@
 		wordBreak: "break-word",
 	});
 	Notification.append(Status);
-	//
 	unsafeWindow.document.documentElement.appendChild(Notification);
 	//
 	Log("Solve Captcha 2 Continue");
@@ -257,16 +256,16 @@
 			//
 			Log("Link Dest:", Payload);
 			//
-			for (let i = 30; i >= 0; i--) {
+			for (let i = 15; i >= 0; i--) {
 				setTimeout(
 					() => (Status.textContent = `Redirecting in ${i}s`),
-					(30 - i) * 1000,
+					(15 - i) * 1000,
 				);
 			}
 			//
 			setTimeout(() => {
 				window.location.href = Payload.url;
-			}, 30000);
+			}, 15000);
 			//
 			return _Dest.apply(this, Args);
 		};
