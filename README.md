@@ -1,7 +1,7 @@
 ## Info
 Bypasses work.ink links; more websites coming soon.
 
-## Changelog (2025-11-15)
+## Changelog (work.ink - 2025-11-15)
 - Reworked session interception with new detection and proxy logic.  
 - Rewrote monetization flows to use internal sendMessage.  
 - Hooked native Promise.all for module interception.  
