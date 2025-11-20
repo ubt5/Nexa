@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Nexa
 // @namespace    http://tampermonkey.net/
-// @version      0.1.2
+// @version      0.1.3
 // @description  Automatically bypasses links
 // @author       nullcrisis
 // @updateURL    https://github.com/nullcrisis/Nexa/raw/refs/heads/main/Nexa.js
@@ -13,7 +13,7 @@
 // ==/UserScript==
 //
 (function () {
-	"use strict";
+	'use strict';
 	//
 	const DEBUG = true;
 	//
@@ -22,203 +22,196 @@
 	const OldError = unsafeWindow.console.error;
 	//
 	function Log(...Args) {
-		if (DEBUG) OldLog("[Nexa]", ...Args);
+		if (DEBUG) OldLog('[Nexa]', ...Args);
 	}
 	function Warn(...Args) {
-		if (DEBUG) OldWarn("[Nexa]", ...Args);
+		if (DEBUG) OldWarn('[Nexa]', ...Args);
 	}
 	function Error(...Args) {
-		if (DEBUG) OldError("[Nexa]", ...Args);
+		if (DEBUG) OldError('[Nexa]', ...Args);
 	}
 	//
 	if (DEBUG) unsafeWindow.console.clear = function () {};
 	//
-	const Notification = unsafeWindow.document.createElement("div");
+	const Notification = unsafeWindow.document.createElement('div');
 	Object.assign(Notification.style, {
-		position: "fixed",
-		bottom: "20px",
-		left: "20px",
-		background: "rgba(28,28,28,0.97)",
-		color: "#fff",
-		padding: "12px 20px",
-		borderRadius: "10px",
-		display: "flex",
-		flexDirection: "column",
-		alignItems: "center",
+		position: 'fixed',
+		bottom: '20px',
+		left: '20px',
+		background: 'rgba(28,28,28,0.97)',
+		color: '#fff',
+		padding: '12px 20px',
+		borderRadius: '10px',
+		display: 'flex',
+		flexDirection: 'column',
+		alignItems: 'center',
 		fontFamily: "'Segoe UI', Tahoma, Geneva, Verdana, sans-serif",
-		zIndex: "999999",
-		minWidth: "180px",
-		boxShadow: "0 6px 20px rgba(0,0,0,0.45)",
+		zIndex: '999999',
+		minWidth: '180px',
+		boxShadow: '0 6px 20px rgba(0,0,0,0.45)',
 	});
 	//
-	const Status = unsafeWindow.document.createElement("div");
-	Status.textContent = "Solve Captcha 2 Continue";
+	const Status = unsafeWindow.document.createElement('div');
+	Status.textContent = 'Solve Captcha 2 Continue';
 	Object.assign(Status.style, {
-		fontSize: "14px",
-		color: "#ccc",
-		textAlign: "center",
-		wordBreak: "break-word",
+		fontSize: '14px',
+		color: '#ccc',
+		textAlign: 'center',
+		wordBreak: 'break-word',
 	});
 	Notification.append(Status);
 	unsafeWindow.document.documentElement.appendChild(Notification);
 	//
-	Log("Solve Captcha 2 Continue");
+	Log('Solve Captcha 2 Continue');
 	//
 	const Mapping = {
-		Info: ["onLinkInfo"],
-		Dest: ["onLinkDestination"],
+		Info: ['onLinkInfo'],
+		Dest: ['onLinkDestination'],
 	};
 	//
 	function Resolve(Obj, Candidates) {
+		if (!Obj || typeof Obj !== 'object' || !Array.isArray(Candidates)) {
+			return { Fn: null, Index: -1, Name: null };
+		}
+		//
 		for (let i = 0; i < Candidates.length; i++) {
 			const Name = Candidates[i];
-			if (typeof Obj[Name] === "function") {
-				return { Fn: Obj[Name], Index: i, Name };
+			const Fn = Obj[Name];
+			//
+			if (typeof Fn === 'function') {
+				return {
+					Fn: Fn,
+					Index: i,
+					Name: Name,
+				};
 			}
 		}
 		return { Fn: null, Index: -1, Name: null };
 	}
 	//
-	function Write(Obj) {
-		for (let i in Obj) {
-			if (typeof Obj[i] == "function" && Obj[i].length == 2) {
-				return { Fn: Obj[i], Name: i };
+	function Compose(Obj) {
+		if (!Obj || typeof Obj !== 'object') {
+			return { Fn: null, Name: null, Index: -1 };
+		}
+		//
+		const Entries = Object.entries(Obj);
+		for (let i = 0; i < Entries.length; i++) {
+			const [Key, Value] = Entries[i];
+			//
+			if (typeof Value === 'function' && Value.length === 2) {
+				return {
+					Fn: Value,
+					Name: Key,
+					Index: i,
+				};
 			}
 		}
-		return { Fn: null, Index: -1, Name: null };
+		return { Fn: null, Name: null, Index: -1 };
 	}
 	//
 	let _Session, _Send, _Info, _Dest = undefined;
 	//
-	function Client() {
+	function Schema() {
 		return {
-			OFFER_SKIPPED: "c_offer_skipped",
-			MONETIZATION: "c_monetization",
-			PING: "c_ping",
-			ADBLOCKER_DETECTED: "c_adblocker_detected",
-			WORKINK_PASS_USE: "c_workink_pass_use",
-			FOCUS_LOST: "c_focus_lost",
-			WORKINK_PASS_AVAILABLE: "c_workink_pass_available",
-			ANNOUNCE: "c_announce",
-			HCAPTCHA_RESPONSE: "c_hcaptcha_response",
-			OFFERS_SKIPPED: "c_offers_skipped",
-			KEYAPP_KEY: "c_keyapp_key",
-			TURNSTILE_RESPONSE: "c_turnstile_response",
-			SOCIAL_STARTED: "c_social_started",
-			RECAPTCHA_RESPONSE: "c_recaptcha_response",
-			FOCUS: "c_focus",
+			PING: 'c_ping',
+			ADBLOCKER_DETECTED: 'c_adblocker_detected',
+			TURNSTILE_RESPONSE: 'c_turnstile_response',
+			SOCIAL_STARTED: 'c_social_started',
 		};
 	}
 	//
-	function SendProxy() {
-		const Packets = Client();
+	function Relay() {
+		const Packets = Schema();
 		return function (...Args) {
 			const Type = Args[0];
 			const Data = Args[1];
 			//
 			if (Type !== Packets.PING) {
-				Log("Sent:", Type, Data);
+				Log('Sent:', Type, Data);
 			}
 			//
 			if (Type === Packets.ADBLOCKER_DETECTED) {
-				Warn("Adblocker Blocked");
+				Warn('Adblocker Blocked');
 				return;
 			}
 			//
-			if (
-				_Session &&
-				_Session.linkInfo &&
-				Type === Packets.TURNSTILE_RESPONSE
-			) {
+			if (_Session && _Session.linkInfo && Type === Packets.TURNSTILE_RESPONSE) {
 				const Result = _Send.apply(this, Args);
 				//
-				Status.textContent = "Captcha Solved, Bypassing..";
-				Log("Captcha Solved");
+				Status.textContent = 'Captcha Solved, Bypassing..';
+				Log('Captcha Solved');
 				//
 				for (const Social of _Session.linkInfo.socials) {
 					_Send.call(this, Packets.SOCIAL_STARTED, { url: Social.url });
 				}
 				//
 				for (const Monetization of _Session.monetizations) {
-					Log("Processing monetization:", Monetization);
-					const Write = Monetization.sendMessage;
+					Log('Processing monetization:', Monetization);
+					const Compose = Monetization.sendMessage;
 					//
 					switch (Monetization.id) {
-						case 22: {
+						case 22:
 							// readArticles2
-							Write.call(Monetization, {
-								event: "read",
+							Compose.call(Monetization, {
+								event: 'read',
 							});
+							//
 							break;
-						}
 						//
-						case 25: {
+						case 25:
 							// operaGX
-							Write.call(Monetization, {
-								event: "start",
+							Compose.call(Monetization, {
+								event: 'start',
 							});
-							Write.call(Monetization, {
-								event: "installClicked",
+							//
+							Compose.call(Monetization, {
+								event: 'installClicked',
 							});
-							fetch("/_api/v2/affiliate/operaGX", {
-								method: "GET",
-								mode: "no-cors",
+							//
+							fetch('/_api/v2/affiliate/operaGX', {
+								method: 'GET',
+								mode: 'no-cors',
 							});
+							//
 							setTimeout(() => {
-								fetch("https://work.ink/_api/v2/callback/operaGX", {
-									method: "POST",
-									mode: "no-cors",
+								fetch('https://work.ink/_api/v2/callback/operaGX', {
+									method: 'POST',
+									mode: 'no-cors',
 									headers: {
-										"Content-Type": "application/json",
+										'Content-Type': 'application/json',
 									},
 									body: JSON.stringify({
 										noteligible: true,
 									}),
 								});
 							}, 5000);
+							//
 							break;
-						}
 						//
-						case 34: {
-							// norton
-							Write.call(Monetization, {
-								event: "start",
+						case 34:
+						case 71:
+							// norton, externalArticles
+							Compose.call(Monetization, {
+								event: 'start',
 							});
-							Write.call(Monetization, {
-								event: "installClicked",
+							Compose.call(Monetization, {
+								event: 'installClicked',
 							});
 							break;
-						}
 						//
-						case 71: {
-							// externalArticles
-							Write.call(Monetization, {
-								event: "start",
+						case 45:
+						case 57:
+							// pdfeditor, betterdeals
+							Compose.call(Monetization, {
+								event: 'installed',
 							});
-							Write.call(Monetization, {
-								event: "installClicked",
-							});
+							//
 							break;
-						}
-						//
-						case 45: {
-							// pdfeditor
-							Write.call(Monetization, {
-								event: "installed",
-							});
-							break;
-						}
-						//
-						case 57: {
-							// betterdeals
-							Write.call(Monetization, {
-								event: "installed",
-							});
-							break;
-						}
+
 						//
 						default:
-							Log("Unknown Monetization:", typeof Monetization, Monetization);
+							Log('Unknown Monetization:', typeof Monetization, Monetization);
+							//
 							break;
 					}
 				}
@@ -229,18 +222,18 @@
 		};
 	}
 	//
-	function InfoProxy() {
+	function Inspect() {
 		return function (...Args) {
 			const Link = Args[0];
 			//
-			Log("Link Info:", Link);
+			Log('Link Info:', Link);
 			//
-			Object.defineProperty(Link, "isAdblockEnabled", {
+			Object.defineProperty(Link, 'isAdblockEnabled', {
 				get() {
 					return false;
 				},
 				set(NewValue) {
-					Log("Attempt Set IsAdblock:", NewValue);
+					Log('Attempt Set IsAdblock:', NewValue);
 				},
 				configurable: false,
 				enumerable: true,
@@ -250,29 +243,21 @@
 		};
 	}
 	//
-	function DestProxy() {
+	function Redirect() {
 		return function (...Args) {
 			const Payload = Args[0];
 			//
-			Log("Link Dest:", Payload);
+			Log('Link Dest:', Payload);
 			//
-			for (let i = 15; i >= 0; i--) {
-				setTimeout(
-					() => (Status.textContent = `Redirecting in ${i}s`),
-					(15 - i) * 1000,
-				);
-			}
-			//
-			setTimeout(() => {
-				window.location.href = Payload.url;
-			}, 15000);
+			Status.textContent = 'Redirecting...';
+			window.location.href = Payload.url;
 			//
 			return _Dest.apply(this, Args);
 		};
 	}
 	//
 	function Session() {
-		const Send = Write(_Session);
+		const Send = Compose(_Session);
 		const Info = Resolve(_Session, Mapping.Info);
 		const Dest = Resolve(_Session, Mapping.Dest);
 		//
@@ -280,13 +265,13 @@
 		_Info = Info.Fn;
 		_Dest = Dest.Fn;
 		//
-		const SendProxyObj = SendProxy();
-		const InfoProxyObj = InfoProxy();
-		const DestProxyObj = DestProxy();
+		const RelayObj = Relay();
+		const InspectObj = Inspect();
+		const RedirectObj = Redirect();
 		//
 		Object.defineProperty(_Session, Send.Name, {
 			get() {
-				return SendProxyObj;
+				return RelayObj;
 			},
 			set(NewValue) {
 				_Send = NewValue;
@@ -297,7 +282,7 @@
 		//
 		Object.defineProperty(_Session, Info.Name, {
 			get() {
-				return InfoProxyObj;
+				return InspectObj;
 			},
 			set(NewValue) {
 				_Info = NewValue;
@@ -308,7 +293,7 @@
 		//
 		Object.defineProperty(_Session, Dest.Name, {
 			get() {
-				return DestProxyObj;
+				return RedirectObj;
 			},
 			set(NewValue) {
 				_Dest = NewValue;
@@ -320,77 +305,97 @@
 		Log(`Session Proxies: ${Send.Name}, ${Info.Name}, ${Dest.Name}`);
 	}
 	//
-	function Check(Object, Property, Value, Receiver) {
-		Log("Check:", Property, Value);
+	function Validate(Object, Property, Value, Receiver) {
+		Log('Validate:', Property, Value);
 		//
 		if (
 			Value &&
-			typeof Value === "object" &&
-			Write(Value).Fn &&
+			typeof Value === 'object' &&
+			Compose(Value).Fn &&
 			Resolve(Value, Mapping.Info).Fn &&
 			Resolve(Value, Mapping.Dest).Fn &&
 			!_Session
 		) {
 			_Session = Value;
-			Log("Intercepted Session:", _Session);
+			Log('Intercepted Session:', _Session);
 			Session();
 		}
 		//
 		return Reflect.set(Object, Property, Value, Receiver);
 	}
 	//
-	function CompProxy(Component) {
+	function Wrap(Component) {
 		return new Proxy(Component, {
 			construct(Target, Args) {
 				const Result = Reflect.construct(Target, Args);
-				Log("Component:", Target, Args, Result);
-				Result.$$.ctx = new Proxy(Result.$$.ctx, { set: Check });
+				Log('Component:', Target, Args, Result);
+				//
+				if (Result && Result.$$ && Result.$$.ctx) {
+					Result.$$.ctx = new Proxy(Result.$$.ctx, { set: Validate });
+				}
+				//
 				return Result;
 			},
 		});
 	}
 	//
-	function NodeProxy(Result) {
+	function Channel(Result) {
 		return new Proxy(Result, {
 			get(Target, Property, Receiver) {
-				if (Property === "component") return CompProxy(Target.component);
+				if (Property === 'component') {
+					const Component = Target.component;
+					return Component ? Wrap(Component) : undefined;
+				}
 				return Reflect.get(Target, Property, Receiver);
 			},
 		});
 	}
 	//
-	function AsyncNode(Node) {
+	function Await(Node) {
 		return async (...Args) => {
+			if (typeof Node !== 'function') {
+				return null;
+			}
+			//
 			const Result = await Node(...Args);
-			Log("Node:", Result);
-			return NodeProxy(Result);
+			Log('Node:', Result);
+			//
+			return Result ? Channel(Result) : Result;
 		};
 	}
 	//
-	function KitProxy(Kit) {
-		if (typeof Kit !== "object" || !Kit) return [false, Kit];
+	function Intercept(Kit) {
+		if (!Kit || typeof Kit !== 'object') return [false, Kit];
 		//
-		const Start = "start" in Kit && Kit.start;
-		if (!Start) return [false, Kit];
+		const Start = Kit.start;
+		if (typeof Start !== 'function') return [false, Kit];
 		//
 		const ProxyKit = new Proxy(Kit, {
 			get(Target, Property, Receiver) {
-				if (Property === "start") {
+				if (Property === 'start') {
 					return function (...Args) {
 						const Module = Args[0];
 						const Options = Args[2];
 						//
 						if (
-							typeof Module === "object" &&
-							typeof Module.nodes === "object" &&
-							typeof Options === "object" &&
-							typeof Options.node_ids === "object"
+							Module &&
+							typeof Module === 'object' &&
+							Module.nodes &&
+							typeof Module.nodes === 'object' &&
+							Options &&
+							typeof Options === 'object' &&
+							Array.isArray(Options.node_ids)
 						) {
-							const Node = Module.nodes[Options.node_ids[1]];
-							Module.nodes[Options.node_ids[1]] = AsyncNode(Node);
+							const NodeId = Options.node_ids[1];
+							const Node = Module.nodes[NodeId];
+
+							if (typeof Node === 'function') {
+								Module.nodes[NodeId] = Await(Node);
+							}
 						}
 						//
-						Log("Kit.Start Hooked", Options);
+						Log('Kit.Start Hooked', Options);
+						//
 						return Start.apply(this, Args);
 					};
 				}
@@ -400,32 +405,33 @@
 		return [true, ProxyKit];
 	}
 	//
-	function KitSetup() {
+	function Bootstrap() {
 		const OriginalPromiseAll = Promise.all;
 		let Intercepted = false;
 		//
-		Promise.all = async function (Promises) {
-			const Result = OriginalPromiseAll.call(this, Promises);
+		Promise.all = async function (promises) {
+			const result = OriginalPromiseAll.call(this, promises);
 			//
 			if (!Intercepted) {
 				Intercepted = true;
 				return await new Promise((Resolve) => {
-					Result.then(([Kit, App, ...Args]) => {
-						Log("Modules Loaded");
-						const [Success, WrappedKit] = KitProxy(Kit);
+					result.then(([Kit, App, ...Args]) => {
+						Log('Modules Loaded');
+						const [Success, WrappedKit] = Intercept(Kit);
 						if (Success) {
 							Promise.all = OriginalPromiseAll;
-							Log("Wrapped Kit:", WrappedKit, App);
+							Log('Wrapped Kit:', WrappedKit, App);
 						}
 						Resolve([WrappedKit, App, ...Args]);
 					});
 				});
 			}
-			return await Result;
+			//
+			return await result;
 		};
 	}
 	//
-	KitSetup();
+	Bootstrap();
 	//
 	window.googletag = { cmd: [], _loaded_: true };
 	//
@@ -433,13 +439,14 @@
 		for (const Mutation of Mutations) {
 			for (const Node of Mutation.addedNodes) {
 				if (Node.nodeType === 1) {
-					if (Node.classList?.contains("adsbygoogle")) {
+					if (Node.classList?.contains('adsbygoogle')) {
 						Node.remove();
-						Log("Removed Ad:", Node);
+						Log('Removed Ad:', Node);
 					}
-					Node.querySelectorAll?.(".adsbygoogle").forEach((Element) => {
+					//
+					Node.querySelectorAll?.('.adsbygoogle').forEach((Element) => {
 						Element.remove();
-						Log("Removed Nested Ad:", Element);
+						Log('Removed Nested Ad:', Element);
 					});
 				}
 			}
