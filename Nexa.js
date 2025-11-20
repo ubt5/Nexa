@@ -15,7 +15,7 @@
 (function () {
 	'use strict';
 	//
-	const DEBUG = true;
+	const DEBUG = false;
 	//
 	const OldLog = unsafeWindow.console.log;
 	const OldWarn = unsafeWindow.console.warn;
