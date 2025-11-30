@@ -249,8 +249,16 @@
 			//
 			Log('Link Dest:', Payload);
 			//
-			Status.textContent = 'Redirecting...';
-			window.location.href = Payload.url;
+			for (let i = 15; i >= 0; i--) {
+				setTimeout(
+					() => (Status.textContent = `Redirecting in ${i}s`),
+					(15 - i) * 1000,
+				);
+			}
+			//
+			setTimeout(() => {
+				window.location.href = Payload.url;
+			}, 15000);
 			//
 			return _Dest(...Args);
 		};
