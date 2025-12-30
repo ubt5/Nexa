@@ -109,7 +109,7 @@
 		return { Fn: null, Name: null, Index: -1 };
 	}
 	//
-	let _Session, _Send, _Info, _Dest;
+	let _Session, _Send, _Info, _Dest = undefined;
 	//
 	function Schema() {
 		return {
@@ -135,8 +135,8 @@
 				return;
 			}
 			//
-			if (_Session?.linkInfo && Type === Packets.TURNSTILE_RESPONSE) {
-				const Result = _Send(...Args);
+			if (_Session && _Session.linkInfo && Type === Packets.TURNSTILE_RESPONSE) {
+				const Result = _Send.apply(this, Args);
 				//
 				Status.textContent = 'Captcha Solved, Bypassing..';
 				Log('Captcha Solved');
@@ -218,7 +218,7 @@
 				return Result;
 			}
 			//
-			return _Send(...Args);
+			return _Send.apply(this, Args);
 		};
 	}
 	//
@@ -239,7 +239,7 @@
 				enumerable: true,
 			});
 			//
-			return _Info(...Args);
+			return _Info.apply(this, Args);
 		};
 	}
 	//
@@ -249,18 +249,10 @@
 			//
 			Log('Link Dest:', Payload);
 			//
-			for (let i = 15; i >= 0; i--) {
-				setTimeout(
-					() => (Status.textContent = `Redirecting in ${i}s`),
-					(15 - i) * 1000,
-				);
-			}
+			Status.textContent = 'Redirecting...';
+			window.location.href = Payload.url;
 			//
-			setTimeout(() => {
-				window.location.href = Payload.url;
-			}, 15000);
-			//
-			return _Dest(...Args);
+			return _Dest.apply(this, Args);
 		};
 	}
 	//
@@ -404,7 +396,7 @@
 						//
 						Log('Kit.Start Hooked', Options);
 						//
-						return Start(...Args);
+						return Start.apply(this, Args);
 					};
 				}
 				return Reflect.get(Target, Property, Receiver);
@@ -418,16 +410,15 @@
 		let Intercepted = false;
 		//
 		Promise.all = async function (promises) {
-			const Result = OriginalPromiseAll.call(this, promises);
+			const result = OriginalPromiseAll.call(this, promises);
 			//
 			if (!Intercepted) {
+				Intercepted = true;
 				return await new Promise((Resolve) => {
-					Result.then(([Kit, App, ...Args]) => {
+					result.then(([Kit, App, ...Args]) => {
 						Log('Modules Loaded');
 						const [Success, WrappedKit] = Intercept(Kit);
 						if (Success) {
-							Intercepted = true;
-							//
 							Promise.all = OriginalPromiseAll;
 							Log('Wrapped Kit:', WrappedKit, App);
 						}
@@ -436,7 +427,7 @@
 				});
 			}
 			//
-			return await Result;
+			return await result;
 		};
 	}
 	//
