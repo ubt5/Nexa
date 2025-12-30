@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Nexa
 // @namespace    http://tampermonkey.net/
-// @version      0.1.4
+// @version      0.1.5
 // @description  Automatically bypasses links
 // @author       nullcrisis
 // @updateURL    https://github.com/nullcrisis/Nexa/raw/refs/heads/main/Nexa.js
